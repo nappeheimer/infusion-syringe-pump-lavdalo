@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Syringe Pump — Gotham Red/Black</title>
+<style>
+/* ===== RESET ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root{
+  --bg-0:#000;           /* base */
+  --bg-1:#0b0000;        /* panels */
+  --bg-2:#120000;        /* cards */
+  --line:#320000;        /* borders */
+  --text:#f5f5f5;        /* text */
+  --muted:#aaaaaa;       /* muted text */
+  --accent:#ff1f1f;      /* primary red */
+  --accent-2:#ff4949;    /* glow red */
+  --ok:#45ff8f;          /* success */
+  --warn:#ffd166;        /* warn */
+  --bad:#ff4d4f;         /* danger */
+  --shadow:0 0 24px rgba(255,40,40,.15), inset 0 0 24px rgba(255,0,0,.05);
+}
+html, body { height: 100%; }
+body{
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text);
+  background: radial-gradient(1200px 600px at 50% -10%, #1f0000 0%, #060000 40%, #000 100%);
+  overflow-x: hidden;
+}
+
+/* ===== BACKGROUND FX ===== */
+.canvas-embers{ position: fixed; inset:0; pointer-events:none; z-index:0; }
+.ember{ position:absolute; width:3px; height:3px; background:var(--accent); border-radius:50%; filter: drop-shadow(0 0 6px var(--accent)); opacity:.6; animation: rise linear infinite; }
+@keyframes rise{ from{ transform: translateY(0) scale(1); opacity:.0;} 20%{opacity:.6;} to{ transform: translateY(-120vh) scale(0.5); opacity:0;} }
+
+/* Subtle scanlines */
+.scanlines:before{ content:""; position:fixed; inset:0; background: repeating-linear-gradient( to bottom, rgba(255,0,0,.04), rgba(255,0,0,.04) 1px, transparent 2px, transparent 4px ); mix-blend-mode: lighten; pointer-events:none; z-index:0; }
+
+/* ===== LAYOUT ===== */
+.container{ position:relative; z-index:1; max-width:1400px; margin: 0 auto; padding: 24px; }
+
+header{ padding:32px; border:1px solid var(--line); border-radius:16px; background: linear-gradient( to bottom, rgba(255,0,0,.06), rgba(0,0,0,.2) ); box-shadow: var(--shadow); text-align:center; margin-bottom:24px; }
+header h1{ font-size: clamp(28px, 4vw, 44px); letter-spacing:.16em; text-transform: uppercase; color: var(--accent); text-shadow: 0 0 24px rgba(255,0,0,.4); }
+header .meta{ opacity:.7; margin-top:8px; }
+header .status-badge{ display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border:1px solid #133017; border-radius:999px; background: linear-gradient( to right, rgba(16,96,40,.2), rgba(0,0,0,.2)); box-shadow: 0 0 16px rgba(40,255,120,.15); margin-top:14px; font-weight:700; color:#b8ffcf; }
+header .status-dot{ width:10px; height:10px; border-radius:50%; background: var(--ok); box-shadow:0 0 10px var(--ok); }
+
+/* ===== TABS ===== */
+.tabs{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:20px 0 24px; }
+.tab{ padding:12px 22px; border:1px solid var(--line); border-radius:10px; cursor:pointer; color:#d8d8d8; background: linear-gradient( to bottom, #140000, #0a0000 ); transition: .2s; }
+.tab:hover{ background:#170000; }
+.tab.active{ color:#000; background: var(--accent); box-shadow:0 0 18px rgba(255,0,0,.45); font-weight:800; }
+
+/* ===== CARDS / GRID ===== */
+.grid{ display:grid; grid-template-columns: repeat(12, 1fr); gap:20px; }
+.card{ grid-column: span 4; border:1px solid var(--line); border-radius:14px; background: linear-gradient(180deg, rgba(255,0,0,.05), rgba(0,0,0,.4)); box-shadow: var(--shadow); padding:22px; }
+.card h3{ font-size:18px; letter-spacing:.08em; margin-bottom:10px; color:#ff6666; text-transform:uppercase; }
+.card.full{ grid-column: 1 / -1; }
+.card.half{ grid-column: span 6; }
+.card.third{ grid-column: span 4; }
+@media (max-width: 1024px){ .card{ grid-column: span 6; } }
+@media (max-width: 720px){ .grid{ display:block; } .card{ margin-bottom:16px; } }
+
+/* ===== WIDGETS ===== */
+.volume-display{ display:grid; grid-template-columns: 1fr 120px; align-items:center; gap:16px; }
+.volume-number{ font-size:48px; font-weight:900; text-shadow:0 0 14px rgba(255,0,0,.25); }
+.volume-bar{ height:16px; border-radius:10px; background:#190000; border:1px solid var(--line); overflow:hidden; }
+.volume-fill{ height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow:0 0 16px rgba(255,0,0,.5); transition: width .4s ease; }
+
+.input-group{ margin:14px 0; }
+.input-group label{ display:block; margin-bottom:8px; color:#ff8f8f; font-weight:700; letter-spacing:.04em; }
+.input, input[type="number"], input[type="text"], input[type="range"]{
+  width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--line); background:#0a0000; color:#fff; outline:none; transition:.2s; }
+input:focus{ border-color: var(--accent); box-shadow:0 0 0 3px rgba(255,0,0,.12); }
+
+.btn{ padding:12px 20px; border:none; border-radius:10px; cursor:pointer; font-weight:800; letter-spacing:.04em; margin:6px 6px 0 0; transition:.2s; }
+.btn:hover{ transform: translateY(-2px); }
+.btn:active{ transform: translateY(0); }
+.btn-primary{ background: var(--accent); color:#000; box-shadow:0 0 14px rgba(255,0,0,.35); }
+.btn-outline{ background: transparent; color:#ff8f8f; border:1px solid var(--line); }
+.btn-danger{ background:#410000; color:#fff; border:1px solid #5a0000; box-shadow: inset 0 0 10px rgba(255,0,0,.1); }
+.btn-success{ background:#062c12; color:#c8ffd8; border:1px solid #145a2f; }
+.btn-warning{ background:#3a2800; color:#ffe5a0; border:1px solid #7a4f00; }
+
+.progress-circle{ width:210px; height:210px; margin: 0 auto; position:relative; }
+.progress-circle svg{ transform: rotate(-90deg); }
+.progress-circle circle{ fill:none; stroke-width:14; }
+.progress-bg{ stroke: rgba(255,0,0,.18); }
+.progress-bar-circle{ stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .5s; filter: drop-shadow(0 0 10px rgba(255,0,0,.6)); }
+.progress-text{ position:absolute; inset:0; display:grid; place-items:center; font-size:34px; font-weight:900; }
+
+.log-table{ width:100%; border-collapse: collapse; }
+.log-table th, .log-table td{ padding:12px; border-bottom:1px solid var(--line); text-align:left; }
+.log-table th{ color:#ff8f8f; text-transform:uppercase; font-size:12px; letter-spacing:.08em; }
+.log-table tr:hover{ background: rgba(255,0,0,.06); }
+
+.control-pad{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; max-width:300px; margin:18px auto; }
+.control-pad button{ padding:18px; font-size:18px; border-radius:12px; border:1px solid var(--line); background:#120000; color:#fff; cursor:pointer; transition:.15s; }
+.control-pad button:hover{ background:#1a0000; box-shadow:0 0 12px rgba(255,0,0,.3); }
+
+/* Toast */
+.toast{ position: fixed; bottom:28px; right:28px; padding:16px 20px; border-radius:10px; background: var(--accent); color:#000; transform: translateX(420px); transition:.28s; z-index:9; font-weight:800; }
+.toast.show{ transform: translateX(0); }
+
+/* Accessibility tweaks */
+@media (prefers-reduced-motion: reduce){
+  *{ animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body class="scanlines">
+<!-- Background embers -->
+<canvas class="canvas-embers" id="embers"></canvas>
+
+<div class="container">
+  <header>
+    <h1>Smart Infusion Syringe Pump</h1>
+    <div class="meta">IoT-Enabled Control — Gotham Red/Black UI</div>
+    <div class="status-badge"><span class="status-dot"></span> Connected · Calibration: <span id="calibBadge">153</span> steps/mL</div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('control', this)">Control</button>
+    <button class="tab" onclick="showTab('monitor', this)">Live Monitor</button>
+    <button class="tab" onclick="showTab('manual', this)">Manual</button>
+    <button class="tab" onclick="showTab('logs', this)">Logs</button>
+    <button class="tab" onclick="showTab('settings', this)">Settings</button>
+    <button class="tab" onclick="showTab('team', this)">Team</button>
+  </div>
+
+  <!-- CONTROL TAB -->
+  <section id="control" class="grid">
+    <div class="card third">
+      <h3>Current Volume</h3>
+      <div class="volume-display">
+        <div>
+          <div class="volume-number" id="currentVolume">25.0</div>
+          <div style="opacity:.7">mL</div>
+        </div>
+        <div>
+          <div class="volume-bar"><div class="volume-fill" id="volumeFill" style="width: 50%"></div></div>
+          <div style="margin-top:8px; opacity:.75;">Capacity: 50.0 mL</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card third">
+      <h3>Dispense Mode</h3>
+      <div class="input-group">
+        <label>Volume (mL)</label>
+        <input type="number" id="dispenseVolume" min="0" max="50" step="0.1" value="5.0" />
+      </div>
+      <div class="input-group">
+        <label>Time (seconds)</label>
+        <input type="number" id="dispenseTime" min="1" max="3600" value="60" />
+      </div>
+      <button class="btn btn-primary" onclick="startDispense()">▶ Start Dispense</button>
+    </div>
+
+    <div class="card third">
+      <h3>Retract Mode</h3>
+      <div class="input-group">
+        <label>Volume (mL)</label>
+        <input type="number" id="retractVolume" min="0" max="50" step="0.1" value="10.0" />
+      </div>
+      <button class="btn btn-outline" onclick="startRetract()">▶ Start Retract</button>
+      <button class="btn btn-warning" onclick="fillToMax()">📦 Fill to Max</button>
+    </div>
+
+    <div class="card full" style="text-align:center; border-color:#5a0000; background: linear-gradient(180deg, rgba(255,0,0,.08), rgba(0,0,0,.6));">
+      <h3>Emergency</h3>
+      <button class="btn btn-warning" onclick="pauseOperation()">⏸ Pause</button>
+      <button class="btn btn-success" onclick="resumeOperation()">▶ Resume</button>
+      <button class="btn btn-danger" onclick="stopOperation()">⏹ Emergency Stop</button>
+    </div>
+  </section>
+
+  <!-- MONITOR TAB -->
+  <section id="monitor" class="grid" style="display:none;">
+    <div class="card half">
+      <h3>Operation Progress</h3>
+      <div class="progress-circle">
+        <svg width="210" height="210">
+          <circle class="progress-bg" cx="105" cy="105" r="90"></circle>
+          <circle class="progress-bar-circle" id="progressCircle" cx="105" cy="105" r="90" stroke-dasharray="565" stroke-dashoffset="565"></circle>
+        </svg>
+        <div class="progress-text" id="progressPercent">0%</div>
+      </div>
+      <p style="text-align:center; margin-top:12px;">Status: <span id="operationStatus">Idle</span></p>
+    </div>
+
+    <div class="card half">
+      <h3>Real-time Stats</h3>
+      <div style="line-height:1.9; font-size:1.05rem;">
+        <p>📍 Steps Completed: <strong id="stepsCompleted">0</strong></p>
+        <p>💉 Volume Dispensed: <strong id="volumeDispensed">0.0 mL</strong></p>
+        <p>⚡ Flow Rate: <strong id="flowRate">0.0 mL/min</strong></p>
+        <p>⏲️ Elapsed Time: <strong id="elapsedTime">00:00</strong></p>
+        <p>🎯 Target: <strong id="targetVolume">0.0 mL</strong></p>
+      </div>
+    </div>
+
+    <div class="card full">
+      <h3>Flow Rate Chart</h3>
+      <div class="chart-container" id="flowChart">
+        <canvas id="chartCanvas" style="width:100%; height:300px; background:#0a0000; border:1px solid var(--line); border-radius:10px;"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- MANUAL TAB -->
+  <section id="manual" class="grid" style="display:none;">
+    <div class="card half" style="margin:0 auto;">
+      <h3>Manual Control</h3>
+      <p style="opacity:.75; margin-bottom:8px;">Use pad or keyboard (W/A/S/D or ↑/←/↓/→). H = Home, R = Reset.</p>
+      <div class="control-pad">
+        <div></div>
+        <button onmousedown="manualForward()" onmouseup="manualStop()" ontouchstart="manualForward()" ontouchend="manualStop()">⬆️</button>
+        <div></div>
+        <button onmousedown="manualLeft()" onmouseup="manualStop()">⬅️</button>
+        <button onclick="manualHome()">🏠</button>
+        <button onmousedown="manualRight()" onmouseup="manualStop()">➡️</button>
+        <div></div>
+        <button onmousedown="manualReverse()" onmouseup="manualStop()" ontouchstart="manualReverse()" ontouchend="manualStop()">⬇️</button>
+        <div></div>
+      </div>
+      <div style="text-align:center; margin-top:10px;">
+        <p>Manual Steps: <strong id="manualSteps">0</strong> &nbsp;|&nbsp; Volume: <strong id="manualVolume">0.0 mL</strong></p>
+        <button class="btn btn-outline" onclick="resetManualCounter()">Reset Counter</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOGS TAB -->
+  <section id="logs" class="grid" style="display:none;">
+    <div class="card full">
+      <h3>Operation Logs</h3>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Type</th><th>Volume (mL)</th><th>Time (s)</th><th>Timestamp</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody"></tbody>
+      </table>
+      <div style="margin-top:12px; text-align:center;">
+        <button class="btn btn-danger" onclick="clearLogs()">🗑 Clear</button>
+        <button class="btn btn-primary" onclick="exportLogs()">📥 Export CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS TAB -->
+  <section id="settings" class="grid" style="display:none;">
+    <div class="card half">
+      <h3>System Settings</h3>
+      <div class="input-group"><label>Calibration (steps/mL)</label><input id="calibration" type="number" value="153" step="1" /></div>
+      <div class="input-group"><label>Safety Margin (mL)</label><input id="safetyMargin" type="number" value="0.5" step="0.1" /></div>
+      <div class="input-group"><label>Max Speed (steps/s)</label><input id="maxSpeed" type="number" value="1500" step="50" /></div>
+      <button class="btn btn-primary" onclick="saveSettings()">💾 Save</button>
+    </div>
+
+    <div class="card half">
+      <h3>Display & Sound</h3>
+      <div class="input-group"><label>LCD Brightness (%)</label><input type="range" id="brightness" min="0" max="100" value="80" oninput="updateBrightness(this.value)"><div style="text-align:right; opacity:.7;"> <span id="brightnessValue">80</span>%</div></div>
+      <div class="input-group"><label>Sound Volume (%)</label><input type="range" id="soundVolume" min="0" max="100" value="70" oninput="updateVolume(this.value)"><div style="text-align:right; opacity:.7;"> <span id="volumeValue">70</span>%</div></div>
+      <div class="input-group"><label>Audio FX</label><button class="btn btn-outline" onclick="toggleAudio()" id="audioToggle">🔊 On</button></div>
+      <div class="input-group"><label>Wi‑Fi SSID</label><input type="text" id="wifiSSID" value="MyNetwork"></div>
+      <div class="input-group"><label>IP Address</label><input type="text" id="ipAddress" value="192.168.1.100" disabled></div>
+      <button class="btn btn-outline" onclick="reconnectWiFi()">🔄 Reconnect</button>
+    </div>
+  </section>
+
+  <!-- TEAM TAB -->
+  <section id="team" class="grid" style="display:none;">
+    <div class="card full">
+      <h3>Meet the Team</h3>
+      <p style="opacity:.8; margin:.5rem 0 1rem;">A passionate group building safe, precise infusion systems.</p>
+      <div class="grid">
+        <div class="card third"><h4>Project Lead</h4><p style="opacity:.8; margin-top:6px;">Hardware & control systems</p></div>
+        <div class="card third"><h4>Software Dev</h4><p style="opacity:.8; margin-top:6px;">Embedded + Web</p></div>
+        <div class="card third"><h4>Electronics</h4><p style="opacity:.8; margin-top:6px;">Power & drivers</p></div>
+        <div class="card third"><h4>UI/UX</h4><p style="opacity:.8; margin-top:6px;">Design & usability</p></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ========================= GLOBAL STATE =========================
+let currentVolume = 25.0;
+let isOperating = false;
+let operationProgress = 0;
+let operationInterval = null;
+let manualStepCount = 0;
+let logs = [];
+let audioEnabled = true;
+
+// ========================= UI HELPERS =========================
+function showTab(id, btn){
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('section').forEach(s => s.style.display = 'none');
+  document.getElementById(id).style.display = 'grid';
+  playSound('click');
+}
+
+function showToast(message, type='success'){
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  const colors = { success: 'var(--accent)', error: 'var(--bad)', warning: 'var(--warn)', danger: 'var(--bad)' };
+  toast.style.background = colors[type] || colors.success;
+  toast.classList.add('show');
+  setTimeout(()=> toast.classList.remove('show'), 2800);
+}
+
+function updateVolumeDisplay(){
+  const volumeEl = document.getElementById('currentVolume');
+  const fillEl = document.getElementById('volumeFill');
+  volumeEl.textContent = currentVolume.toFixed(1);
+  const pct = (currentVolume / 50.0) * 100; fillEl.style.width = pct + '%';
+  sendCommand('UPDATE_VOLUME', currentVolume);
+}
+
+// ========================= OPERATIONS =========================
+function startDispense(){
+  const volume = parseFloat(document.getElementById('dispenseVolume').value);
+  const time = parseFloat(document.getElementById('dispenseTime').value);
+  if (volume <= 0 || volume > currentVolume - 0.5) { showToast('❌ Invalid volume', 'error'); playSound('error'); return; }
+  if (time <= 0) { showToast('❌ Time must be > 0', 'error'); playSound('error'); return; }
+  sendCommand('START_DISPENSE', { volume, time });
+  document.getElementById('operationStatus').textContent = 'Dispensing...';
+  document.getElementById('targetVolume').textContent = volume.toFixed(1) + ' mL';
+  isOperating = true; operationProgress = 0; simulateOperation(volume, time, 'dispense');
+  showToast(`✅ Dispense: ${volume} mL in ${time}s`); playSound('start');
+}
+
+function startRetract(){
+  const volume = parseFloat(document.getElementById('retractVolume').value);
+  if (volume <= 0 || volume > (50.0 - currentVolume - 0.5)) { showToast('❌ Invalid retract volume', 'error'); playSound('error'); return; }
+  sendCommand('START_RETRACT', { volume });
+  document.getElementById('operationStatus').textContent = 'Retracting...';
+  document.getElementById('targetVolume').textContent = volume.toFixed(1) + ' mL';
+  isOperating = true; operationProgress = 0; simulateOperation(volume, 10, 'retract');
+  showToast(`✅ Retract: ${volume} mL`); playSound('start');
+}
+
+function fillToMax(){
+  const volume = 50.0 - currentVolume - 0.5;
+  document.getElementById('retractVolume').value = Math.max(0, volume).toFixed(1);
+  startRetract();
+}
+
+function pauseOperation(){ if(!isOperating) return; sendCommand('PAUSE'); document.getElementById('operationStatus').textContent = 'Paused'; showToast('⏸ Paused','warning'); playSound('pause'); }
+function resumeOperation(){ if(!isOperating) return; sendCommand('RESUME'); document.getElementById('operationStatus').textContent = 'Resuming...'; showToast('▶ Resumed'); playSound('resume'); }
+function stopOperation(){ if(!isOperating) return; sendCommand('STOP'); if(operationInterval) clearInterval(operationInterval); isOperating=false; operationProgress=0; document.getElementById('operationStatus').textContent = 'Stopped'; updateProgressCircle(0); showToast('⏹ Stopped','danger'); playSound('stop'); }
+
+function simulateOperation(volume, time, type){
+  const totalSteps = volume * parseFloat(document.getElementById('calibration').value || '153');
+  let stepsCompleted = 0; const updateInterval = 100; const stepsPerUpdate = (totalSteps / (time * 10));
+  operationInterval = setInterval(()=>{
+    stepsCompleted += stepsPerUpdate; operationProgress = (stepsCompleted/totalSteps)*100;
+    if(operationProgress >= 100){ operationProgress = 100; clearInterval(operationInterval); completeOperation(volume, type); }
+    updateProgressCircle(operationProgress);
+    document.getElementById('stepsCompleted').textContent = Math.round(stepsCompleted);
+    document.getElementById('volumeDispensed').textContent = (stepsCompleted / (totalSteps/volume)).toFixed(2) + ' mL';
+    const flowRate = (volume / time) * 60; document.getElementById('flowRate').textContent = flowRate.toFixed(1) + ' mL/min';
+    const elapsed = Math.round((operationProgress / 100) * time); const mins = Math.floor(elapsed/60); const secs = elapsed%60;
+    document.getElementById('elapsedTime').textContent = String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+  }, updateInterval);
+}
+
+function completeOperation(volume, type){
+  isOperating=false; if(type==='dispense'){ currentVolume -= volume; } else { currentVolume += volume; }
+  updateVolumeDisplay(); document.getElementById('operationStatus').textContent = 'Complete';
+  const log = { id: logs.length+1, type: type.charAt(0).toUpperCase()+type.slice(1), volume: volume.toFixed(1), time: type==='dispense'? document.getElementById('dispenseTime').value : 'N/A', timestamp: new Date().toLocaleString(), status:'✅ Complete'};
+  logs.push(log); addLogToTable(log); showToast('🎉 Operation complete'); playSound('complete');
+}
+
+function updateProgressCircle(percent){
+  const circle = document.getElementById('progressCircle'); const r = 90; const c = 2*Math.PI*r; const off = c - (percent/100)*c; circle.style.strokeDashoffset = off; document.getElementById('progressPercent').textContent = Math.round(percent)+'%';
+}
+
+// ========================= MANUAL =========================
+let manualInterval=null;
+function manualForward(){ sendCommand('MANUAL_FORWARD'); manualInterval = setInterval(()=>{ manualStepCount += 10; updateManualDisplay(); }, 100); playSound('manual'); }
+function manualReverse(){ sendCommand('MANUAL_REVERSE'); manualInterval = setInterval(()=>{ manualStepCount -= 10; updateManualDisplay(); }, 100); playSound('manual'); }
+function manualLeft(){ manualReverse(); }
+function manualRight(){ manualForward(); }
+function manualStop(){ sendCommand('MANUAL_STOP'); if(manualInterval){ clearInterval(manualInterval); manualInterval=null; } }
+function manualHome(){ sendCommand('MANUAL_HOME'); manualStepCount = 0; updateManualDisplay(); showToast('🏠 Homed'); playSound('click'); }
+function resetManualCounter(){ manualStepCount = 0; updateManualDisplay(); showToast('🔄 Manual reset'); playSound('click'); }
+function updateManualDisplay(){ document.getElementById('manualSteps').textContent = manualStepCount; const vol = (Math.abs(manualStepCount)/ parseFloat(document.getElementById('calibration').value || '153')).toFixed(2); document.getElementById('manualVolume').textContent = vol + ' mL'; }
+
+// Keyboard shortcuts
+window.addEventListener('keydown', (e)=>{
+  const k = e.key.toLowerCase();
+  if(['w','arrowup'].includes(k)) return manualForward();
+  if(['s','arrowdown'].includes(k)) return manualReverse();
+  if(['a','arrowleft'].includes(k)) return manualLeft();
+  if(['d','arrowright'].includes(k)) return manualRight();
+  if(k==='h') return manualHome();
+  if(k==='r') return resetManualCounter();
+});
+window.addEventListener('keyup', manualStop);
+
+// ========================= LOGS =========================
+function addLogToTable(log){
+  const tbody = document.getElementById('logTableBody');
+  const row = tbody.insertRow(0);
+  row.innerHTML = `<td>${log.id}</td><td>${log.type}</td><td>${log.volume}</td><td>${log.time}</td><td>${log.timestamp}</td><td>${log.status}</td>`;
+}
+function clearLogs(){ if(confirm('Clear all logs?')){ logs = []; document.getElementById('logTableBody').innerHTML=''; showToast('🗑 Cleared'); playSound('click'); } }
+function exportLogs(){ let csv='ID,Type,Volume (mL),Time (s),Timestamp,Status\n'; logs.forEach(l=>{ csv += `${l.id},${l.type},${l.volume},${l.time},${l.timestamp},${l.status}\n`; }); const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='syringe_pump_logs_'+new Date().toISOString()+'.csv'; a.click(); showToast('📥 Exported'); playSound('click'); }
+
+// ========================= SETTINGS =========================
+function saveSettings(){ const calibration = document.getElementById('calibration').value; const safetyMargin = document.getElementById('safetyMargin').value; const maxSpeed = document.getElementById('maxSpeed').value; document.getElementById('calibBadge').textContent = calibration; sendCommand('UPDATE_SETTINGS', { calibration, safetyMargin, maxSpeed }); showToast('💾 Settings saved'); playSound('save'); }
+function updateBrightness(v){ document.getElementById('brightnessValue').textContent = v; sendCommand('SET_BRIGHTNESS', v); }
+function updateVolume(v){ document.getElementById('volumeValue').textContent = v; sendCommand('SET_VOLUME', v); }
+function reconnectWiFi(){ showToast('🔄 Reconnecting...', 'warning'); sendCommand('RECONNECT_WIFI'); setTimeout(()=>{ showToast('✅ Wi‑Fi reconnected'); playSound('connect'); }, 1600); }
+
+// ========================= AUDIO =========================
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type){ if(!audioEnabled) return; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); const sounds = { click:{f:900,d:50}, start:{f:1200,d:200}, stop:{f:600,d:200}, pause:{f:1000,d:150}, resume:{f:1400,d:150}, complete:{f:1600,d:250}, error:{f:420,d:250}, save:{f:1800,d:120}, manual:{f:1000,d:45}, connect:{f:2000,d:160} }; const s = sounds[type] || sounds.click; osc.frequency.value = s.f; gain.gain.value = 0.08; osc.start(); osc.stop(audioContext.currentTime + s.d/1000); }
+function toggleAudio(){ audioEnabled = !audioEnabled; document.getElementById('audioToggle').textContent = audioEnabled ? '🔊 On' : '🔇 Off'; showToast(`Audio ${audioEnabled? 'On':'Off'}`); }
+
+// ========================= COMMUNICATION =========================
+function sendCommand(command, data=null){ console.log('CMD:', command, data); /* hook to backend/ESP32 */ }
+
+// ========================= INIT =========================
+function initEmbers(){
+  const c = document.getElementById('embers'); const ctx = c.getContext('2d');
+  const DPR = window.devicePixelRatio || 1; let w = c.width = innerWidth * DPR, h = c.height = innerHeight * DPR; c.style.width = innerWidth+'px'; c.style.height = innerHeight+'px'; ctx.scale(DPR, DPR);
+  const sparks = Array.from({length:120}, ()=>({ x: Math.random()*innerWidth, y: Math.random()*innerHeight, s: Math.random()*2+0.5, v: Math.random()*0.6+0.2, a: Math.random()*0.6+0.2 }));
+  function loop(){ ctx.clearRect(0,0,innerWidth,innerHeight); for(const p of sparks){ ctx.fillStyle = `rgba(255,30,30,${p.a})`; ctx.shadowBlur = 12; ctx.shadowColor = 'rgba(255,30,30,.8)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); p.y -= p.v; p.x += (Math.random()-0.5)*0.6; if(p.y < -10){ p.y = innerHeight+10; p.x = Math.random()*innerWidth; } } requestAnimationFrame(loop); }
+  loop(); window.addEventListener('resize', ()=>{ w = c.width = innerWidth * DPR; h = c.height = innerHeight * DPR; c.style.width = innerWidth+'px'; c.style.height = innerHeight+'px'; ctx.scale(DPR, DPR); });
+}
+
+window.onload = function(){ initEmbers(); updateVolumeDisplay(); updateProgressCircle(0); showToast('🔗 Connected'); playSound('connect'); };
+</script>
+</body>
+</html>
