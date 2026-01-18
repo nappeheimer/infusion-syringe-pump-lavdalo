@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nltk
 import re
+import joblib
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
