@@ -15,8 +15,16 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.stem import WordNetLemmatizer
 
-# Download NLTK data once
-nltk.download('all')
+# Download only necessary NLTK data
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+    nltk.download('punkt_tab')
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')
+    nltk.download('vader_lexicon')
 
 def preprocess(text):
   if not isinstance(text, str): return "" # Safety check for non-string inputs
