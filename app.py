@@ -5,6 +5,16 @@ import base64
 import numpy as np
 import joblib
 import os
+import nltk
+
+# --- NLTK DOWNLOAD FIX ---
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab')
+    nltk.download('punkt')
+    nltk.download('stopwords')
+    nltk.download('wordnet')
 
 # Page config
 st.set_page_config(
